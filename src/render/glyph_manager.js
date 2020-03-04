@@ -52,26 +52,26 @@ class GlyphManager {
             if (!entry) {
                 entry = this.entries[stack] = {
                     glyphs: {},
-                    requests: {}
+                    requests: {},
+                    ranges: {},
                 };
-            }
-
-            let glyph = entry.glyphs[id];
-            if (glyph !== undefined) {
-                callback(null, {stack, id, glyph});
-                return;
-            }
-
-            glyph = this._tinySDF(entry, stack, id);
-            if (glyph) {
-                entry.glyphs[id] = glyph;
-                callback(null, {stack, id, glyph});
-                return;
             }
 
             const range = Math.floor(id / 256);
             if (range * 256 > 65535) {
                 callback(new Error('glyphs > 65535 not supported'));
+                return;
+            }
+
+            if (entry.ranges[range]) {
+                callback(null, {stack, id, glyph: entry.glyphs[id]});
+                return;
+            }
+
+            const glyph = this._tinySDF(entry, stack, id);
+            if (glyph) {
+                entry.glyphs[id] = glyph;
+                callback(null, {stack, id, glyph});
                 return;
             }
 
@@ -91,6 +91,9 @@ class GlyphManager {
                             cb(err, response);
                         }
                         delete entry.requests[range];
+                        // Keep tracks of range already loaded. 
+                        // It avoids to reload endless time if a glyph is missing in the font.
+                        entry.ranges[range] = true;
                     });
             }
 
